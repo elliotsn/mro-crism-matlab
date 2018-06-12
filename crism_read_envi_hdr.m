@@ -35,22 +35,16 @@ function header = crism_read_envi_hdr(filepath)
                 value = strtok(value, '=');
 
                 % Replace illegal characters in variable name with null
-                if strfind(param, ':')
-                    param = strrep(param, ':', '');
-                end
-                if strfind(param, '^')
-                    param = strrep(param, '^', '');
-                end
+                param = strrep(param, ':', '');
+                param = strrep(param, '^', '');
                 
                 % Replace whitespace with underscores
-                if strfind(param, ' ')
-                    param = strrep(param, ' ', '_');
-                end
+                param = strrep(param, ' ', '_');
                 
-                % Null any open curly braces
-                if strfind(value, '{')
-                    value = strrep(value, '{', '');
-                end
+                % Null any open curly braces in value
+                value = strrep(value, '{', '');
+                % And leading or trailing whitespaces
+                value = strtrim(value);
                 
                 % Make the new parameter equal to the new value.
                 eval(['header.', param, '=''', value, ''';']);

@@ -31,20 +31,19 @@ function [varargout] = crism_read_envi_img(varargin)
 %                                 NaN in the cube all values equal to this.
 %
 %% check for header reader
-if exist('read_envihdr.m','file') == 0
-    error('This function requires read_envihdr.m')
+if exist('crism_read_envi_hdr.m','file') == 0
+    error('This function requires crism_read_envi_hdr.m')
 end
 
 %% READ HEADER INFO
 % Read Filename
 file = varargin{1};
-hdrfile = [file,'.hdr'];
+hdrfile = [file(1:end-4),'.hdr'];
 if nargin == 2
     hdrfile = varargin{2};
 end
 % Get header file
-header = read_envihdr(hdrfile);
-
+header = crism_read_envi_hdr(hdrfile);
 
 %% Make geo-location vectors
 % If there is geographic information in the header then the image is map-projected. Make the lat and lon
@@ -74,7 +73,7 @@ end
 
 
 %% Set binary format parameters
-switch header.byte_order
+switch str2double(header.byte_order)
     case {0}
         machine = 'ieee-le';
     case {1}
@@ -82,7 +81,7 @@ switch header.byte_order
     otherwise
         machine = 'n';
 end
-switch header.data_type
+switch str2double(header.data_type)
     case {1}
         format = 'int8';
     case {2}
@@ -97,20 +96,24 @@ switch header.data_type
         disp('>> Sorry, Complex (2x32 bits)data currently not supported');
         disp('>> Importing as double-precision instead');
         format= 'double';
-case {9}
-        error('Sorry, double-precision complex (2x64 bits) data currently not supported');
-case {12}
-        format= 'uint16';
-case {13}
-        format= 'uint32';
-case {14}
-         format= 'int64';
-case {15}
-        format= 'uint64';
+    case {9}
+            error('Sorry, double-precision complex (2x64 bits) data currently not supported');
+    case {12}
+            format= 'uint16';
+    case {13}
+            format= 'uint32';
+    case {14}
+             format= 'int64';
+    case {15}
+            format= 'uint64';
     otherwise
         error(['File type number: ',num2str(dtype),' not supported']);
 end
 %% Read File
+header.samples = str2double(header.samples);
+header.lines = str2double(header.lines);
+header.bands = str2double(header.bands);
+
 Z = fread(fopen(file),header.samples*header.lines*header.bands,format,0,machine); fclose all;
 tmp = zeros(header.lines, header.samples, header.bands);
 switch lower(header.interleave)
@@ -136,6 +139,7 @@ Z = tmp;
 % Now null the bad bands and set to 0 all values equal to the data_ignore_value,
 % to make plotting easier later on.
 if isfield(header, 'data_ignore_value')
+    header.data_ignore_value = str2double(header.data_ignore_value);
     Z(Z == header.data_ignore_value) = NaN;
 end
 
@@ -143,10 +147,10 @@ end
 if isfield(header, 'wavelength')
     tmp = header.wavelength;
     tmp(tmp == '{' | tmp == '}') = []; % Remove braces.
-    header.wavelength = str2num(char(strtrim(csvstr2arr(tmp))));
+    header.wavelength = str2double(char(strtrim(csvstr2arr(tmp))));
 
     % Also, get rid of that annoying 65536 value in the first element of
-    % wavelength.
+    % wavelength, if it exists.
     if isfield(header, 'data_ignore_value')
          header.wavelength(header.wavelength == header.data_ignore_value) = NaN;
     end  
@@ -156,7 +160,7 @@ end
 if isfield(header, 'bbl')
     tmp = header.bbl;
     tmp(tmp == '{' | tmp == '}') = []; % Remove braces.
-    header.bbl = logical(str2num(char(strtrim(csvstr2arr(tmp)))));
+    header.bbl = logical(str2double(char(strtrim(csvstr2arr(tmp)))));
     
     % Set to NaN those bands in the cube.
     Z(:,:,header.bbl == false) = NaN;
@@ -175,9 +179,8 @@ end
 if isfield(header, 'default_bands')
     tmp = header.default_bands;
     tmp(tmp == '{' | tmp == '}') = []; % Remove braces.
-    header.default_bands = str2num(char(csvstr2arr(tmp)));
+    header.default_bands = str2double(char(csvstr2arr(tmp)));
 end
-
 
 varargout{1} = Z;
 varargout{4} = header;
